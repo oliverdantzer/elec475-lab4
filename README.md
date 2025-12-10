@@ -214,6 +214,144 @@ The notebook implements a CLIP-style vision-language model with the following co
 - Comprehensive report
 - Save evaluation results
 
+## Experimental Modification Flags
+
+The training notebook includes **experimental flags** to test architectural modifications that may improve accuracy:
+
+### 🔬 Available Flags (Cell 2 in `train_clip.ipynb`)
+
+```python
+CONFIG = {
+    # === EXPERIMENTAL FLAGS ===
+    'use_batch_norm': False,        # Add BatchNorm to projection head
+    'use_attention_pooling': False, # Use attention pooling in ResNet50
+    # ==========================
+}
+```
+
+### Flag 1: `use_batch_norm` (Normalization)
+
+**What it does:**
+- Adds BatchNorm1d layers after each linear layer in the projection head
+- Architecture becomes: `Linear → BatchNorm → GELU → Linear → BatchNorm`
+
+**Hypothesis:**
+- BatchNorm stabilizes training by normalizing activations
+- Reduces internal covariate shift in the projection head
+- May allow higher learning rates and faster convergence
+- Could improve generalization through implicit regularization
+
+**Expected Impact:**
+- ✅ More stable training (less loss variance)
+- ✅ Potentially faster convergence
+- ✅ Better gradient flow
+- ⚠️ Slight increase in parameters (~2K)
+
+### Flag 2: `use_attention_pooling` (Architecture)
+
+**What it does:**
+- Replaces global average pooling with learned attention pooling
+- Computes spatial attention weights over ResNet50's feature maps
+- Weighted sum of features instead of simple averaging
+
+**Architecture:**
+```python
+# Standard: Global Average Pooling
+features [B, 2048, 7, 7] → avgpool → [B, 2048]
+
+# Attention: Learned Weighted Pooling
+features [B, 2048, 7, 7] → attention weights [B, 49, 1]
+                         → weighted sum → [B, 2048]
+```
+
+**Hypothesis:**
+- Attention mechanism focuses on discriminative regions
+- More flexible than fixed average pooling
+- Can learn to emphasize important spatial locations
+- Better alignment with text descriptions (which describe salient objects)
+
+**Expected Impact:**
+- ✅ Better feature representation
+- ✅ Improved image-text alignment
+- ✅ Higher Recall@K scores
+- ⚠️ Additional parameters (~128K)
+
+### Using the Flags
+
+**To enable modifications:**
+
+1. Open `train_clip.ipynb`
+2. In Cell 2 (Configuration), set flags to `True`:
+   ```python
+   'use_batch_norm': True,
+   'use_attention_pooling': True,
+   ```
+3. Run the notebook as normal
+
+**Automatic Output Organization:**
+
+All outputs are automatically organized by flags:
+
+```
+/content/
+├── checkpoints/                 # Baseline
+│   └── best_model.pt
+├── checkpoints_bn/              # BatchNorm only
+│   └── best_model_bn.pt
+├── checkpoints_attn/            # Attention only
+│   └── best_model_attn.pt
+├── checkpoints_bn_attn/         # Both flags
+│   └── best_model_bn_attn.pt
+├── logs/
+│   ├── training_curves.png      # Baseline
+│   ├── training_curves_bn.png   # BatchNorm
+│   └── training_report_bn.txt
+```
+
+**Flag Suffixes:**
+- No flags: *(no suffix)*
+- `use_batch_norm=True`: `_bn`
+- `use_attention_pooling=True`: `_attn`
+- Both: `_bn_attn`
+
+### Comparing Results
+
+To compare different configurations:
+
+1. **Train baseline:**
+   - Set both flags to `False`
+   - Train and note results
+
+2. **Train with BatchNorm:**
+   - Set `use_batch_norm=True`
+   - Train (outputs go to `*_bn` files)
+
+3. **Train with Attention:**
+   - Set `use_attention_pooling=True`
+   - Train (outputs go to `*_attn` files)
+
+4. **Train with both:**
+   - Set both to `True`
+   - Train (outputs go to `*_bn_attn` files)
+
+5. **Compare:**
+   - Check validation loss/accuracy in training reports
+   - Run evaluation notebook on each checkpoint
+   - Compare Recall@K metrics
+
+### Expected Results
+
+Based on architectural intuition:
+
+| Configuration | Expected Val Acc | Expected Recall@5 | Training Speed |
+|--------------|------------------|-------------------|----------------|
+| Baseline | 0.45-0.50 | 55-60% | Fastest |
+| + BatchNorm | 0.48-0.53 | 57-62% | Similar |
+| + Attention | 0.50-0.55 | 60-65% | 10% slower |
+| + Both | 0.52-0.57 | 62-67% | 10% slower |
+
+*Note: Actual results depend on training time, data augmentation, and other factors.*
+
 ## Training Configuration
 
 The training notebook uses carefully selected hyperparameters optimized for Colab:
