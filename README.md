@@ -8,6 +8,8 @@ This project prepares the MS COCO 2014 dataset for fine-tuning CLIP models, as r
 - **CLIP Preprocessing**: Images normalized with CLIP-specific mean/std values
 - **Text Embedding Caching**: Pre-encodes all captions to save GPU memory and training time
 - **PyTorch Dataset**: Custom Dataset class for efficient data loading
+- **ResNet50 Image Encoder**: Pretrained ImageNet weights for image feature extraction
+- **Projection Head**: 2-layer MLP with GELU activation for CLIP space alignment
 - **Visualization Tools**: Verify dataset integrity with image-caption pair displays
 
 ## Dataset Information
@@ -16,6 +18,36 @@ This project prepares the MS COCO 2014 dataset for fine-tuning CLIP models, as r
 - **Validation Images**: ~40,504 images
 - **Captions**: Multiple captions per image (typically 5)
 - **Source**: [COCO 2014 Dataset on Kaggle](https://www.kaggle.com/datasets/jeffaudi/coco-2014-dataset-for-yolov3)
+
+## Model Architecture
+
+The notebook implements a CLIP-style vision-language model with the following components:
+
+### 1. Text Encoder (Frozen)
+- **Model**: Pretrained CLIP text encoder from HuggingFace (`openai/clip-vit-base-patch32`)
+- **Status**: **FROZEN** - Parameters not updated during training
+- **Output**: 512-dimensional text embeddings
+- **Purpose**: Provides the target embedding space for image alignment
+
+### 2. Image Encoder (Trainable)
+- **Architecture**: ResNet50
+- **Initialization**: Pretrained ImageNet weights
+- **Status**: **TRAINABLE** - Fine-tuned during training
+- **Output**: 2048-dimensional image features
+- **Parameters**: ~23M
+
+### 3. Projection Head (Trainable)
+- **Architecture**: Two-layer MLP with GELU activation
+- **Dimensions**: 2048 → 1024 → 512
+- **Status**: **TRAINABLE** - Learns to map image features to CLIP space
+- **Parameters**: ~2.6M
+- **Activation**: GELU (Gaussian Error Linear Unit)
+
+### Training Strategy
+- Only the **image encoder** and **projection head** are trained
+- Text encoder remains frozen with pretrained CLIP weights
+- Total trainable parameters: ~26M (~70% of model)
+- Embeddings are L2-normalized before computing similarity
 
 ## Quick Start (Google Colab)
 
@@ -82,6 +114,12 @@ Run all cells in order (Runtime → Run all). The notebook will:
 - Visualize random image-caption pairs
 - Run integrity checks
 - Display dataset statistics
+
+### Cell 13-16: Model Architecture
+- **Cell 13-14**: ResNet50 image encoder with ImageNet pretrained weights
+- **Cell 15**: Projection head (2-layer MLP with GELU)
+- **Cell 16**: Combined CLIP model with frozen text encoder
+- **Cell 17**: Model verification with sample batch
 
 ## Usage After Preparation
 
@@ -204,11 +242,17 @@ All requirements are automatically installed by the notebook:
 
 ## Next Steps
 
-After completing dataset preparation:
+After running the notebook, you'll have:
+- ✓ Dataset prepared and cached
+- ✓ CLIP model architecture defined (ResNet50 + Projection Head)
+- ✓ Text encoder frozen and ready
 
-1. **Fine-tune CLIP**: Implement training loop with contrastive loss
-2. **Evaluate**: Test model on validation set
-3. **Experiment**: Try different architectures or training strategies
+To complete the lab:
+
+1. **Implement InfoNCE Loss**: Contrastive loss function for CLIP training
+2. **Training Loop**: Optimize image encoder and projection head
+3. **Evaluation Metrics**: Implement Recall@K for retrieval performance
+4. **Qualitative Analysis**: Test on unseen examples and visualize results
 
 ## References
 
