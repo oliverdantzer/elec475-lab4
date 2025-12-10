@@ -10,6 +10,7 @@ transformers>=4.30.0
 
 # Dataset and Utilities
 kaggle>=1.5.16
+kagglehub>=0.2.0
 pycocotools>=2.0.6
 
 # Image Processing
