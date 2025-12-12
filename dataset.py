@@ -52,16 +52,18 @@ class COCOClipDataset(Dataset):
     Loads images and pre-computed text embeddings from cache.
     """
 
-    def __init__(self, split='train', dataset_dir=None, transform=None, return_all_captions=False):
+    def __init__(self, split='train', dataset_dir=None, transform=None, return_all_captions=False, return_raw_image=False):
         """
         Args:
             split: 'train' or 'val'
             dataset_dir: Path to COCO dataset directory (default: /content/coco2014)
             transform: Image transforms (default: CLIP transforms)
             return_all_captions: If True, return all captions; if False, return random caption
+            return_raw_image: If True, return raw PIL image for visualization (default: False)
         """
         self.split = split
         self.return_all_captions = return_all_captions
+        self.return_raw_image = return_raw_image
 
         # Set paths
         if dataset_dir is None:
@@ -126,8 +128,8 @@ class COCOClipDataset(Dataset):
             'image_path': str(image_path)
         }
 
-        # Add raw image for visualization (optional)
-        if image is not None:
+        # Add raw image for visualization (only if requested)
+        if self.return_raw_image and image is not None:
             result['image_raw'] = image
 
         # Return all captions or random caption

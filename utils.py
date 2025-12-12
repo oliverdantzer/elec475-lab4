@@ -99,12 +99,16 @@ def visualize_samples(dataset, num_samples=6, figsize=(15, 10)):
     Visualize random samples from the dataset.
 
     Args:
-        dataset: Dataset instance
+        dataset: Dataset instance (must have return_raw_image=True)
         num_samples: Number of samples to display
         figsize: Figure size
     """
     import random
     from dataset import denormalize_image
+
+    # Temporarily enable raw image return if not already enabled
+    original_return_raw_image = getattr(dataset, 'return_raw_image', False)
+    dataset.return_raw_image = True
 
     # Select random indices
     indices = random.sample(range(len(dataset)), num_samples)
@@ -150,6 +154,9 @@ def visualize_samples(dataset, num_samples=6, figsize=(15, 10)):
     plt.show()
 
     print(f"\nDisplayed {num_samples} random samples")
+
+    # Restore original setting
+    dataset.return_raw_image = original_return_raw_image
 
 
 def save_checkpoint(model, optimizer, scheduler, epoch, val_loss, val_acc, config, filepath):
@@ -524,7 +531,10 @@ def retrieve_images_for_text(query_text, model, tokenizer, dataset, image_embedd
     # Get top-K
     top_scores, top_indices = torch.topk(similarities, k=min(top_k, len(similarities)), largest=True)
 
-    # Retrieve images
+    # Retrieve images (temporarily enable raw image return)
+    original_return_raw_image = getattr(dataset, 'return_raw_image', False)
+    dataset.return_raw_image = True
+
     top_images = []
     top_captions = []
 
@@ -533,6 +543,9 @@ def retrieve_images_for_text(query_text, model, tokenizer, dataset, image_embedd
         if 'image_raw' in sample and sample['image_raw'] is not None:
             top_images.append(sample['image_raw'])
         top_captions.append(sample['caption'])
+
+    # Restore original setting
+    dataset.return_raw_image = original_return_raw_image
 
     return top_images, top_scores.tolist(), top_captions, top_indices.tolist()
 
