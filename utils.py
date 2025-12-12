@@ -243,16 +243,22 @@ def encode_and_cache_captions(split, dataset_dir, tokenizer, text_encoder, devic
 
     print(f"Found {len(image_to_captions)} unique images with captions")
 
-    # Flatten all captions for batch processing
+    # Flatten all captions for batch processing with index tracking
     print(f"\nPreparing captions for batch encoding...")
     image_ids = list(image_to_captions.keys())
     all_captions = []
-    caption_to_image = []  # Maps caption index to image_id
+    image_id_to_indices = {}  # Maps image_id to list of caption indices
+    current_idx = 0
 
     for img_id in image_ids:
         captions = image_to_captions[img_id]
+        num_captions = len(captions)
+
+        # Track indices for this image
+        image_id_to_indices[img_id] = list(range(current_idx, current_idx + num_captions))
+        current_idx += num_captions
+
         all_captions.extend(captions)
-        caption_to_image.extend([img_id] * len(captions))
 
     print(f"Total captions to encode: {len(all_captions):,}")
 
@@ -287,12 +293,12 @@ def encode_and_cache_captions(split, dataset_dir, tokenizer, text_encoder, devic
     # Concatenate all embeddings
     all_embeddings = torch.cat(all_embeddings, dim=0)
 
-    # Organize embeddings by image_id
+    # Organize embeddings by image_id (fast O(n) lookup)
     print("\nOrganizing embeddings by image_id...")
     cache_data = []
     for img_id in image_ids:
-        # Find all caption indices for this image
-        caption_indices = [i for i, cid in enumerate(caption_to_image) if cid == img_id]
+        # Get caption indices for this image (O(1) lookup)
+        caption_indices = image_id_to_indices[img_id]
 
         # Get embeddings and captions for this image
         embeddings = all_embeddings[caption_indices]
