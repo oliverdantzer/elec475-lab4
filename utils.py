@@ -243,20 +243,31 @@ def encode_and_cache_captions(split, dataset_dir, tokenizer, text_encoder, devic
 
     print(f"Found {len(image_to_captions)} unique images with captions")
 
-    # Encode captions
-    cache_data = []
+    # Flatten all captions for batch processing
+    print(f"\nPreparing captions for batch encoding...")
     image_ids = list(image_to_captions.keys())
+    all_captions = []
+    caption_to_image = []  # Maps caption index to image_id
 
-    print(f"\nEncoding captions (batch_size={batch_size})...")
+    for img_id in image_ids:
+        captions = image_to_captions[img_id]
+        all_captions.extend(captions)
+        caption_to_image.extend([img_id] * len(captions))
+
+    print(f"Total captions to encode: {len(all_captions):,}")
+
+    # Encode all captions in batches
+    print(f"\nEncoding captions in batches of {batch_size}...")
     text_encoder.eval()
+    all_embeddings = []
 
     with torch.no_grad():
-        for img_id in tqdm(image_ids, desc=f"Encoding {split} captions"):
-            captions = image_to_captions[img_id]
+        for i in tqdm(range(0, len(all_captions), batch_size), desc=f"Encoding {split} captions"):
+            batch_captions = all_captions[i:i+batch_size]
 
             # Tokenize
             inputs = tokenizer(
-                captions,
+                batch_captions,
                 padding=True,
                 truncation=True,
                 max_length=77,
@@ -268,15 +279,31 @@ def encode_and_cache_captions(split, dataset_dir, tokenizer, text_encoder, devic
             outputs = text_encoder(**inputs)
             embeddings = outputs.pooler_output.cpu()
 
-            # Store
-            cache_data.append({
-                'image_id': img_id,
-                'embeddings': embeddings,
-                'captions': captions
-            })
+            all_embeddings.append(embeddings)
 
-            if len(cache_data) % 1000 == 0 and torch.cuda.is_available():
+            if i % (batch_size * 100) == 0 and torch.cuda.is_available():
                 torch.cuda.empty_cache()
+
+    # Concatenate all embeddings
+    all_embeddings = torch.cat(all_embeddings, dim=0)
+
+    # Organize embeddings by image_id
+    print("\nOrganizing embeddings by image_id...")
+    cache_data = []
+    for img_id in image_ids:
+        # Find all caption indices for this image
+        caption_indices = [i for i, cid in enumerate(caption_to_image) if cid == img_id]
+
+        # Get embeddings and captions for this image
+        embeddings = all_embeddings[caption_indices]
+        captions = image_to_captions[img_id]
+
+        # Store
+        cache_data.append({
+            'image_id': img_id,
+            'embeddings': embeddings,
+            'captions': captions
+        })
 
     # Save cache
     cache_file = dataset_dir / f'{split}_text_embeddings.pt'
