@@ -79,7 +79,7 @@ class COCOClipDataset(Dataset):
                 f"Text embedding cache not found at {self.cache_file}. "
                 f"Please run coco_dataset_prep.ipynb first."
             )
-        cache = torch.load(self.cache_file)
+        cache = torch.load(self.cache_file, weights_only=False)
         self.cache_data = cache['data']
 
         # Set transform

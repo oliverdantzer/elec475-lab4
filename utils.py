@@ -203,7 +203,7 @@ def load_checkpoint(filepath, model, optimizer=None, scheduler=None, device='cud
     Returns:
         checkpoint: Checkpoint dict
     """
-    checkpoint = torch.load(filepath, map_location=device)
+    checkpoint = torch.load(filepath, map_location=device, weights_only=False)
 
     model.load_state_dict(checkpoint['model_state_dict'])
 
